@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fabrincando Loja de Fábrica - Av. Carioca, 343 - Vila Carioca - SP</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,system-ui,Arial,sans-serif;background:#f8fafc;color:#111}
+.topbar{background:#fef3c7;color:#92400e;text-align:center;font-size:11px;padding:7px 10px;font-weight:700;letter-spacing:.3px}
+.header{position:sticky;top:0;z-index:30;background:#fff;border-bottom:1px solid #e5e7eb;padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.logo{font-weight:900;font-size:18px}
+.logo span{color:#ec4899}
+.search{flex:1;min-width:180px}
+.search input{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px}
+.cartbtn{background:#111;color:#fff;border:0;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}
+.grid{max-width:1100px;margin:0 auto;padding:14px;display:grid;grid-template-columns:repeat(1,1fr);gap:12px}
+@media(min-width:600px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:900px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.card img{width:100%;height:220px;object-fit:cover;background:#f3f4f6}
+.card-body{padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.badge{font-size:10px;font-weight:800;padding:4px 6px;border-radius:6px;display:inline-block}
+.off{background:#fee2e2;color:#b91c1c}
+.estoque{background:#dcfce7;color:#166534}
+.de{text-decoration:line-through;color:#9ca3af;font-size:12px}
+.por{font-weight:900;font-size:18px}
+.pix{color:#16a34a;font-weight:800;font-size:13px}
+.card button{margin-top:6px;background:#111;color:#fff;border:0;padding:12px;border-radius:10px;font-weight:800;cursor:pointer}
+.cart{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:50}
+.cart.open{display:flex;justify-content:flex-end}
+.cart-panel{width:100%;max-width:420px;background:#fff;height:100%;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.step{border:1px solid #e5e7eb;border-radius:10px;padding:10px}
+.step h4{font-size:14px;margin-bottom:8px}
+input,select{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;margin-top:4px}
+label{font-size:12px;font-weight:600}
+.frete-opt{border:1px solid #e5e7eb;border-radius:8px;padding:8px;margin-top:6px;display:flex;gap:8px;align-items:center}
+.frete-opt input{width:auto}
+.btn-whats{background:#25d366;color:#fff;border:0;padding:14px;border-radius:10px;font-weight:900;cursor:pointer;width:100%}
+.btn-pay{background:#111;color:#fff;border:0;padding:12px;border-radius:10px;font-weight:800;cursor:pointer;width:100%;margin-top:6px}
+.footer{margin-top:30px;background:#111;color:#fff;padding:18px;text-align:center;font-size:12px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="topbar">🏠 SHOWROOM E RETIRADA: Av. Carioca, 343 - Vila Carioca - São Paulo - SP • Envio para todo Brasil • (11) 2589-5150 • SUPABASE ONLINE</div>
+<header class="header">
+<div class="logo">FABRINCANDO <span>LOJA OFICIAL</span></div>
+<div class="search"><input id="busca" placeholder="Buscar Sereias, Bombeiros, Dinos, Cercado..."></div>
+<button class="cartbtn" onclick="abrirCarrinho()">🛒 Carrinho <span id="cartcount">0</span></button>
+</header>
+
+<div style="max-width:1100px;margin:0 auto;padding:10px 14px;font-size:12px;color:#6b7280"><span id="contador">Carregando produtos...</span> • <span id="status">Conectando Supabase...</span></div>
+
+<div class="grid" id="grid"></div>
+
+<div class="cart" id="cart">
+<div class="cart-panel">
+<div style="display:flex;justify-content:space-between;align-items:center"><h3>Seu Carrinho</h3><button onclick="fecharCarrinho()" style="border:0;background:#f3f4f6;padding:8px 10px;border-radius:8px">✕</button></div>
+
+<div class="step" id="step1">
+<h4>1️⃣ Produtos</h4>
+<div id="cartitems"></div>
+<div style="margin-top:10px;border-top:1px solid #eee;padding-top:8px">
+<div>Subtotal: R$ <span id="subtotal">0,00</span></div>
+<div style="color:#16a34a;font-weight:800">PIX 10% OFF: R$ <span id="pix">0,00</span></div>
+</div>
+<button class="btn-pay" onclick="irParaDados()">Continuar para Entrega →</button>
+</div>
+
+<div class="step" id="step2" style="display:none">
+<h4>2️⃣ Dados para Entrega - Av. Carioca, 343</h4>
+<label>Nome completo*<input id="nome"></label>
+<label>E-mail*<input id="email" type="email"></label>
+<label>CPF<input id="cpf" placeholder="000.000.000-00"></label>
+<label>WhatsApp*<input id="zap" placeholder="(11) 99999-9999"></label>
+<label>CEP* <small style="color:#6b7280">busca automática</small><input id="cep" placeholder="00000-000" maxlength="9"></label>
+<label>Rua<input id="rua"></label>
+<label>Número*<input id="numero"></label>
+<label>Complemento<input id="comp"></label>
+<label>Bairro<input id="bairro"></label>
+<label>Cidade<input id="cidade"></label>
+<label>Estado<input id="uf"></label>
+<label style="display:flex;gap:6px;margin-top:8px"><input type="checkbox" id="salvar" style="width:auto"> Salvar meus dados</label>
+<button class="btn-pay" onclick="irParaFrete()">Calcular Frete →</button>
+</div>
+
+<div class="step" id="step3" style="display:none">
+<h4>3️⃣ Frete e Pagamento</h4>
+<div id="freteinfo" style="font-size:12px;color:#6b7280;margin-bottom:8px"></div>
+<div class="frete-opt"><input type="radio" name="frete" value="pac" checked><div><b>PAC Correios</b> - <span id="fpac">R$ 25,00</span> - <span id="dpac">5 dias úteis</span><br><a href="https://rastreamento.correios.com.br/app/index.php" target="_blank" style="font-size:11px">Rastreio Correios</a></div></div>
+<div class="frete-opt"><input type="radio" name="frete" value="jadlog"><div><b>Jadlog</b> - <span id="fjad">R$ 30,00</span> - <span id="djad">4 dias úteis</span><br><a href="https://www.jadlog.com.br/rastreio" target="_blank" style="font-size:11px">Rastreio Jadlog</a></div></div>
+<div class="frete-opt"><input type="radio" name="frete" value="retirada"><div><b>Retirada na loja - Av. Carioca, 343</b> - Grátis - 1 dia</div></div>
+
+<div style="margin-top:10px">
+<label>Cupom<input id="cupom" placeholder="FRETEGRATIS ou FABRINCANDO10"></label>
+<button class="btn-pay" onclick="aplicarCupom()">Aplicar cupom</button>
+</div>
+
+<div style="margin-top:12px;border-top:1px solid #eee;padding-top:8px">
+<div>Total + Frete: R$ <span id="totalfinal">0,00</span></div>
+<div style="color:#16a34a;font-weight:800">Total PIX: R$ <span id="totalpix">0,00</span></div>
+</div>
+
+<a href="https://www2.correios.com.br/sistemas/precosPrazos/" target="_blank" style="font-size:11px;color:#6b7280">🔗 Tabela oficial Correios</a> • <a href="https://melhorenvio.com.br" target="_blank" style="font-size:11px;color:#6b7280">Melhor Envio</a>
+
+<button class="btn-whats" onclick="finalizarWhats()">💬 Finalizar no WhatsApp (11) 2589-5150</button>
+<button class="btn-pay" onclick="gerarLinkPagamento()">🔗 Gerar Link InfinitePay / Mercado Pago</button>
+<div style="font-size:11px;color:#6b7280;margin-top:6px">InfinitePay taxa 0,99% PIX ideal B2C • Mercado Pago mais confiança + 3x sem juros</div>
+</div>
+
+</div>
+</div>
+
+<div class="footer">
+🏠 Showroom e Retirada: Av. Carioca, 343 - Vila Carioca - São Paulo - SP<br>
+(11) 2589-5150 • pedidos@fabrincandoideias.com.br • sac@fabrincandoideias.com.br • www.fabrincandoideias.com.br • @fabrincandoideias<br>
+Desenvolvido por META & RB TECNOLOGIA - rodabanner • carlos@fabrincandoideias.com.br
+</div>
+
+<script>
+const SUPA_URL='https://aicjdbvodbitpnoulgkh.supabase.co';
+const SUPA_KEY='sb_publishable_penGBvW9YtQSRjBp2F9SvA_l01NdpOO';
+const supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+let produtos=[]; let cart=[];
+let freteValor=25; let dias=5; let descontoCupom=0;
+
+function br(n){return n.toLocaleString('pt-BR',{minimumFractionDigits:2})}
+function parseBR(s){if(!s)return 0;let t=s.replace(/R\$|\s/g,'').replace(/\./g,'').replace(',','.');let n=parseFloat(t);return isNaN(n)?0:n}
+
+async function carregar(){
+ try{
+  const {data,error}=await supa.from('produtos').select('*').eq('ativo',true).order('nome');
+  if(error) throw error;
+  produtos=data||[];
+  document.getElementById('status').innerText='SUPABASE ONLINE • '+produtos.length+' produtos • Av. Carioca 343';
+  render();
+ }catch(e){
+  document.getElementById('status').innerText='Erro Supabase, usando local';
+  produtos=[
+    {ref:'7102',nome:'BARRACA CASINHA AMIGAS SEREIAS',categoria:'Barracas Casinha',preco_de:189.90,preco_por:110.88,estoque:71},
+    {ref:'6501',nome:'BARRACA CASINHA BOMBEIROS HEROIS',categoria:'Barracas Casinha',preco_de:189.90,preco_por:110.88,estoque:100},
+    {ref:'9609',nome:'BARRACA CASINHA DINOSSAUROS',categoria:'Barracas Casinha',preco_de:159.90,preco_por:89.51,estoque:200},
+    {ref:'0688',nome:'CERCADO BALAO ROSA',categoria:'Cercados',preco_de:299.00,preco_por:168.00,estoque:27},
+    {ref:'5250',nome:'GALINHA AZULZINHA',categoria:'Kits 3 em 1',preco_de:399.00,preco_por:247.17,estoque:281},
+    {ref:'5441',nome:'PIZZARIA',categoria:'Kits 3 em 1',preco_de:189.90,preco_por:117.81,estoque:96},
+  ];
+  render();
+ }
+}
+function imgUrl(p){
+  const base='https://aicjdbvodbitpnoulgkh.supabase.co/storage/v1/object/public/produto-fotos/';
+  return base+p.ref+'.jpg';
+}
+function render(){
+ const q=(document.getElementById('busca').value||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'');
+ let lista=produtos.filter(pr=>{
+  let txt=(pr.nome+' '+pr.ref+' '+(pr.categoria||'')).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'');
+  return txt.includes(q);
+ });
+ document.getElementById('contador').innerText=lista.length+' produtos encontrados';
+ document.getElementById('grid').innerHTML=lista.map(p=>{
+  let de=p.preco_de||p.preco_por*1.71; let por=p.preco_por; let pix=por*0.9;
+  return `<div class="card">
+   <img src="${imgUrl(p)}" onerror="this.onerror=null;this.src='https://aicjdbvodbitpnoulgkh.supabase.co/storage/v1/object/public/produto-fotos/${p.ref}.png';this.onerror=function(){this.src='https://via.placeholder.com/400x300?text=${p.ref}'}">
+   <div class="card-body">
+    <div><span class="badge off">42% OFF</span> <span class="badge estoque">ESTOQUE ${p.estoque||0}</span></div>
+    <div style="font-weight:800;font-size:13px">${p.nome}</div>
+    <div style="font-size:11px;color:#6b7280">REF ${p.ref} • ${p.categoria||''}</div>
+    <div class="de">De R$ ${br(de)}</div>
+    <div class="por">Por R$ ${br(por)} PREÇO FÁBRICA</div>
+    <div class="pix">PIX R$ ${br(pix)} 10% OFF</div>
+    <button onclick="addCart('${p.ref}')">Adicionar ao carrinho</button>
+   </div>
+  </div>`;
+ }).join('');
+}
+document.getElementById('busca').addEventListener('input',()=>{render()});
+
+function addCart(ref){
+ let p=produtos.find(x=>x.ref==ref); if(!p)return;
+ let it=cart.find(x=>x.ref==ref); if(it) it.qtd++; else cart.push({ref:p.ref,nome:p.nome,por:p.preco_por,qtd:1});
+ atualizarCart(); abrirCarrinho();
+}
+function atualizarCart(){
+ document.getElementById('cartcount').innerText=cart.reduce((s,i)=>s+i.qtd,0);
+ let html=''; let sub=0;
+ cart.forEach((it,idx)=>{
+  sub+=it.por*it.qtd;
+  html+=`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee;padding:6px 0">
+   <div style="flex:1"><div style="font-weight:700;font-size:13px">${it.nome}</div><div style="font-size:11px">REF ${it.ref} • R$ ${br(it.por)}</div></div>
+   <div style="display:flex;gap:4px;align-items:center"><button onclick="cart[${idx}].qtd=Math.max(1,cart[${idx}].qtd-1);atualizarCart()">-</button><span style="min-width:20px;text-align:center">${it.qtd}</span><button onclick="cart[${idx}].qtd++;atualizarCart()">+</button><button onclick="cart.splice(${idx},1);atualizarCart()" style="margin-left:6px">🗑️</button></div>
+  </div>`;
+ });
+ document.getElementById('cartitems').innerHTML=html||'<div style="font-size:12px;color:#6b7280">Carrinho vazio</div>';
+ document.getElementById('subtotal').innerText=br(sub);
+ document.getElementById('pix').innerText=br(sub*0.9);
+ calcularFrete(sub);
+}
+function calcularFrete(sub){
+ let uf=(document.getElementById('uf').value||'SP').toUpperCase();
+ let cep=(document.getElementById('cep').value||'').replace(/\D/g,'');
+ let tabela={SP:15, RJ:25, MG:25, ES:25, SC:28, PR:28, RS:28, DF:32, GO:32, MS:32, MT:32, BA:38, PE:38, CE:38, RN:38, SE:38, AL:38, PB:38, MA:38, PI:38, PA:45, AM:45, RO:45, AC:45, RR:45, AP:45, TO:45};
+ let base=25; let d=5;
+ if(sub>=199){base=0;d=2; document.getElementById('freteinfo').innerHTML='<span style="background:#dcfce7;color:#166534;padding:4px 6px;border-radius:6px;font-weight:800">FRETE GRÁTIS acima R$199 • Av. Carioca 343</span>';}
+ else{
+   for(let k in tabela){ if(uf.startsWith(k)){base=tabela[k]; break;}}
+   if(cep.startsWith('04')){base=15;d=2;} // Vila Carioca SP
+   document.getElementById('freteinfo').innerText='Frete calculado para '+uf+' • CEP '+cep;
+ }
+ if(uf=='SP' && sub<199){ base = cep.startsWith('04')?15:20; d=cep.startsWith('04')?2:3; }
+ freteValor=base; dias=d;
+ document.getElementById('fpac').innerText='R$ '+br(base);
+ document.getElementById('fjad').innerText='R$ '+br(base+5);
+ document.getElementById('dpac').innerText=d+' dias úteis';
+ document.getElementById('djad').innerText=Math.max(1,d-1)+' dias úteis';
+ let sel=document.querySelector('input[name="frete"]:checked');
+ let fSel=0; if(sel){ if(sel.value=='pac') fSel=base; else if(sel.value=='jadlog') fSel=base+5; else fSel=0; }
+ let total=sub+fSel-descontoCupom;
+ document.getElementById('totalfinal').innerText=br(total);
+ document.getElementById('totalpix').innerText=br(total*0.9);
+}
+document.querySelectorAll('input[name="frete"]').forEach(el=>el?.addEventListener('change',()=>atualizarCart()));
+function abrirCarrinho(){document.getElementById('cart').classList.add('open')}
+function fecharCarrinho(){document.getElementById('cart').classList.remove('open')}
+function irParaDados(){document.getElementById('step1').style.display='none';document.getElementById('step2').style.display='block';}
+function irParaFrete(){
+ let nome=document.getElementById('nome').value.trim();
+ let email=document.getElementById('email').value.trim();
+ let zap=document.getElementById('zap').value.trim();
+ let cep=document.getElementById('cep').value.trim();
+ if(!nome||!email||!zap||!cep){alert('Preencha Nome, E-mail, WhatsApp e CEP');return;}
+ if(document.getElementById('salvar').checked){
+  localStorage.setItem('fabrincando_cliente_v1', JSON.stringify({
+   nome:document.getElementById('nome').value, email:document.getElementById('email').value, cpf:document.getElementById('cpf').value, zap:document.getElementById('zap').value, cep:document.getElementById('cep').value, rua:document.getElementById('rua').value, numero:document.getElementById('numero').value, comp:document.getElementById('comp').value, bairro:document.getElementById('bairro').value, cidade:document.getElementById('cidade').value, uf:document.getElementById('uf').value
+  }));
+ }
+ document.getElementById('step2').style.display='none';document.getElementById('step3').style.display='block'; atualizarCart();
+}
+document.getElementById('cep').addEventListener('blur', async ()=>{
+ let cep=document.getElementById('cep').value.replace(/\D/g,''); if(cep.length!=8)return;
+ try{
+  let r=await fetch('https://viacep.com.br/ws/'+cep+'/json/'); let j=await r.json();
+  if(!j.erro){document.getElementById('rua').value=j.logradouro||'';document.getElementById('bairro').value=j.bairro||'';document.getElementById('cidade').value=j.localidade||'';document.getElementById('uf').value=j.uf||''; calcularFrete(parseFloat(document.getElementById('subtotal').innerText.replace('.','').replace(',','.'))||0);}
+ }catch(e){}
+});
+function aplicarCupom(){
+ let c=(document.getElementById('cupom').value||'').toUpperCase().trim();
+ let sub=cart.reduce((s,i)=>s+i.por*i.qtd,0);
+ if(c=='FRETEGRATIS'){freteValor=0;descontoCupom=0;alert('Frete Grátis aplicado!');}
+ else if(c=='FABRINCANDO10'){descontoCupom=sub*0.10;alert('10% OFF aplicado!');}
+ else{alert('Cupom inválido');return;}
+ atualizarCart();
+}
+function finalizarWhats(){
+ if(cart.length==0){alert('Carrinho vazio');return;}
+ let nome=document.getElementById('nome').value||'Cliente';
+ let email=document.getElementById('email').value||'';
+ let zap=document.getElementById('zap').value||'';
+ let cpf=document.getElementById('cpf').value||'';
+ let cep=document.getElementById('cep').value||'';
+ let rua=document.getElementById('rua').value||''; let num=document.getElementById('numero').value||''; let comp=document.getElementById('comp').value||''; let bairro=document.getElementById('bairro').value||''; let cidade=document.getElementById('cidade').value||''; let uf=document.getElementById('uf').value||'';
+ let sub=cart.reduce((s,i)=>s+i.por*i.qtd,0);
+ let sel=document.querySelector('input[name="frete"]:checked'); let fTexto='PAC'; let fVal=freteValor;
+ if(sel){ if(sel.value=='pac'){fTexto='PAC Correios R$ '+br(fVal)+' - '+dias+' dias';} else if(sel.value=='jadlog'){fTexto='Jadlog R$ '+br(fVal+5)+' - '+(dias-1)+' dias'; fVal+=5;} else {fTexto='Retirada Av. Carioca, 343 - Grátis - 1 dia'; fVal=0;} }
+ let total=sub+fVal-descontoCupom;
+ let itens=cart.map(i=>`• ${i.nome} REF ${i.ref} x${i.qtd} = R$ ${br(i.por*i.qtd)}`).join('%0A');
+ let msg=`Olá Fabrincando! Pedido B2C Loja de Fábrica - SHOWROOM Av. Carioca, 343 - Vila Carioca - SP%0A%0A*Cliente:* ${nome}%0AEmail: ${email}%0AZap: ${zap}%0ACPF: ${cpf}%0A*Endereço:* ${rua}, ${num} ${comp} - ${bairro} - ${cidade}/${uf} - CEP ${cep}%0A%0A*Itens:*%0A${itens}%0A%0ASubtotal: R$ ${br(sub)}%0AFrete: ${fTexto}%0ADesconto cupom: R$ ${br(descontoCupom)}%0ATotal: R$ ${br(total)}%0APIX 10% OFF: R$ ${br(total*0.9)}%0A%0A*Links:*%0ACorreios rastreio: https://rastreamento.correios.com.br/app/index.php%0ATabela Correios: https://www2.correios.com.br/sistemas/precosPrazos/%0AMelhor Envio: https://melhorenvio.com.br%0A%0APagamento: PIX 10% OFF ou 3x sem juros%0AEndereço retirada: Av. Carioca, 343 - Vila Carioca - São Paulo - SP`;
+ window.open('https://wa.me/551125895150?text='+msg,'_blank');
+}
+function gerarLinkPagamento(){
+ let totalPix=parseFloat(document.getElementById('totalpix').innerText.replace('.','').replace(',','.'))||0;
+ let base=localStorage.getItem('fabrincando_link_pagamento')||'';
+ if(!base){base=prompt('Cole seu link base InfinitePay ou Mercado Pago (ex: https://mpago.la/... ou https://infinitepay.io/...)'); if(base){localStorage.setItem('fabrincando_link_pagamento',base);} else return;}
+ let link=base+(base.includes('?')?'&':'?')+'amount='+totalPix.toFixed(2);
+ prompt('Link de pagamento com valor PIX R$ '+br(totalPix), link);
+ window.open('https://wa.me/551125895150?text='+encodeURIComponent('Olá, gerei link pagamento R$ '+br(totalPix)+': '+link),'_blank');
+}
+(function(){
+ let saved=localStorage.getItem('fabrincando_cliente_v1'); if(saved){ try{let j=JSON.parse(saved); document.getElementById('nome').value=j.nome||'';document.getElementById('email').value=j.email||'';document.getElementById('cpf').value=j.cpf||'';document.getElementById('zap').value=j.zap||'';document.getElementById('cep').value=j.cep||'';document.getElementById('rua').value=j.rua||'';document.getElementById('numero').value=j.numero||'';document.getElementById('comp').value=j.comp||'';document.getElementById('bairro').value=j.bairro||'';document.getElementById('cidade').value=j.cidade||'';document.getElementById('uf').value=j.uf||'';}catch(e){} }
+})();
+carregar();
+</script>
+</body>
+</html>
